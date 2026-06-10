@@ -21,6 +21,9 @@ type extraFields struct {
 }
 
 // RenderCloudConfig turns the collected Model into a #cloud-config document.
+// Unlike the agent's original NewInteractiveInstallConfig, it intentionally does
+// NOT merge the system userdata dirs here: kairos-agent manual-install is invoked
+// with --use-default-dirs, which re-scans those dirs at install time.
 func RenderCloudConfig(m *Model) (string, error) {
 	extras := extraFields{m.extraFields}
 

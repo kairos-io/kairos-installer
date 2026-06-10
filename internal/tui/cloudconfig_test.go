@@ -1,6 +1,10 @@
 package tui
 
 import (
+	"os"
+	"path/filepath"
+
+	sdkLogger "github.com/kairos-io/kairos-sdk/types/logger"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
@@ -38,3 +42,29 @@ var _ = Describe("RenderCloudConfig", func() {
 		Expect(out).To(ContainSubstring("initramfs:"))
 	})
 })
+
+var _ = Describe("installProcessPage agent resolution", func() {
+	It("reports an error and leaves no temp config when kairos-agent is absent", func() {
+		// No agent anywhere.
+		GinkgoT().Setenv("KAIROS_AGENT_BIN", "")
+		GinkgoT().Setenv("PATH", GinkgoT().TempDir())
+
+		// Minimal valid model for RenderCloudConfig.
+		logger := sdkLogger.NewKairosLogger("installer", "info", true)
+		mainModel = InitialModel(&logger, "") // resets global mainModel
+		mainModel.disk = "/dev/sda"
+		mainModel.finishAction = "nothing"
+
+		before := tmpConfigCount()
+		p := newInstallProcessPage()
+		p.Init()
+		Expect(p.errorMsg).To(ContainSubstring("kairos-agent not found"))
+		Expect(tmpConfigCount()).To(Equal(before)) // no kairos-install-*.yaml leaked
+	})
+})
+
+// tmpConfigCount counts leftover temp cloud-config files.
+func tmpConfigCount() int {
+	matches, _ := filepath.Glob(filepath.Join(os.TempDir(), "kairos-install-*.yaml"))
+	return len(matches)
+}

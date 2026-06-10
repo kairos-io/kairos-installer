@@ -51,6 +51,15 @@ func newInstallProcessPage() *installProcessPage {
 
 func (p *installProcessPage) Init() tea.Cmd {
 	p.once.Do(func() {
+		// Resolve the agent first, before rendering or writing the temp
+		// cloud-config: the config carries the user's password hash, so we
+		// must not create it on disk when we are not going to run the agent.
+		agentBin := agentrun.ResolveAgentBin()
+		if agentBin == "" {
+			p.errorMsg = "kairos-agent not found (set KAIROS_AGENT_BIN or add it to PATH)"
+			return
+		}
+
 		ccString, err := RenderCloudConfig(&mainModel)
 		if err != nil {
 			p.errorMsg = "Failed to generate install configuration: " + err.Error()
@@ -65,15 +74,15 @@ func (p *installProcessPage) Init() tea.Cmd {
 		_ = f.Close()
 		cfgPath := f.Name()
 
-		agentBin := agentrun.ResolveAgentBin()
-		if agentBin == "" {
-			p.errorMsg = "kairos-agent not found (set KAIROS_AGENT_BIN or add it to PATH)"
-			return
-		}
-
 		go func() {
 			defer close(p.done)
 			defer os.Remove(cfgPath)
+			// sawError is local to this goroutine and only touched by the
+			// onEvent callback, which agentrun.Run invokes synchronously on
+			// this same goroutine. Tracking it here (instead of reading
+			// p.errorMsg, which the bubbletea Update loop writes) keeps the
+			// final error check race-free.
+			sawError := false
 			err := agentrun.Run(agentBin, cfgPath, mainModel.source, mainModel.finishAction,
 				func(ev agentrun.ProgressEvent) {
 					switch ev.Event {
@@ -82,12 +91,13 @@ func (p *installProcessPage) Init() tea.Cmd {
 							p.output <- StepPrefix + disp
 						}
 					case "error":
+						sawError = true
 						p.output <- ErrorPrefix + ev.Message
 					}
 				},
 				func(line string) { mainModel.log.Print(line) },
 			)
-			if err != nil && p.errorMsg == "" {
+			if err != nil && !sawError {
 				p.output <- ErrorPrefix + err.Error()
 			}
 		}()
@@ -101,6 +111,13 @@ type CheckInstallerMsg struct{}
 func (p *installProcessPage) Update(msg tea.Msg) (Page, tea.Cmd) {
 	switch msg.(type) {
 	case CheckInstallerMsg:
+		// If Init hit an early error (e.g. agent not found), it never started
+		// the goroutine and never closed p.done. Stop here so we don't busy-poll
+		// the channels forever. This read and the writes in Init both happen on
+		// the bubbletea main goroutine, so it is race-free.
+		if p.errorMsg != "" {
+			return p, nil
+		}
 		select {
 		case output, ok := <-p.output:
 			if !ok {
