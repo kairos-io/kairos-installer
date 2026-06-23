@@ -49,29 +49,31 @@ type CheckBundleMsg struct{}
 
 func (p *debugBundlePage) Init() tea.Cmd {
 	p.once.Do(func() {
+		// Snapshot everything buildBundle needs on the Update goroutine, BEFORE
+		// spawning the worker, so the worker never touches the mainModel global
+		// (which the Update goroutine mutates on WindowSizeMsg / navigation).
+		agentBin := agentrun.ResolveAgentBin()
+		redacted, _ := RenderRedactedCloudConfig(&mainModel)
+		cmd := agentrun.Command(agentBin, "<config>", mainModel.source, mainModel.finishAction)
+		ctx := debugbundle.Context{
+			AgentBin:            agentBin,
+			AgentArgs:           cmd.Args[1:],
+			Disk:                mainModel.disk,
+			Source:              mainModel.source,
+			Version:             version,
+			CloudConfigRedacted: redacted,
+		}
 		go func() {
-			p.resultCh <- buildBundle()
+			p.resultCh <- buildBundle(agentBin, ctx)
 		}()
 	})
 	return func() tea.Msg { return CheckBundleMsg{} }
 }
 
 // buildBundle collects extras, generates the tarball, and starts the HTTP
-// server. It runs off the bubbletea goroutine.
-func buildBundle() bundleResult {
-	agentBin := agentrun.ResolveAgentBin()
-
-	redacted, _ := RenderRedactedCloudConfig(&mainModel)
-	cmd := agentrun.Command(agentBin, "<config>", mainModel.source, mainModel.finishAction)
-	ctx := debugbundle.Context{
-		AgentBin:            agentBin,
-		AgentArgs:           cmd.Args[1:],
-		Disk:                mainModel.disk,
-		Source:              mainModel.source,
-		Version:             version,
-		CloudConfigRedacted: redacted,
-	}
-
+// server. It runs off the bubbletea goroutine and operates only on the snapshot
+// passed in, never on the mainModel global.
+func buildBundle(agentBin string, ctx debugbundle.Context) bundleResult {
 	extras, _ := debugbundle.CollectExtras(debugbundle.ExecRunner{}, ctx, "/var/log/kairos/")
 	out := debugbundle.OutputPath(time.Now())
 
@@ -87,6 +89,12 @@ func buildBundle() bundleResult {
 func (p *debugBundlePage) Update(msg tea.Msg) (Page, tea.Cmd) {
 	switch m := msg.(type) {
 	case CheckBundleMsg:
+		// Once the result has been received, state moves off bundleCollecting.
+		// Short-circuit so re-opening the page doesn't schedule a 100ms tick
+		// forever.
+		if p.state != bundleCollecting {
+			return p, nil
+		}
 		select {
 		case res := <-p.resultCh:
 			if res.err != nil {
@@ -180,6 +188,9 @@ func (p *debugBundlePage) Title() string { return "Debug Bundle" }
 func (p *debugBundlePage) Help() string {
 	if p.state == bundleReady {
 		return "u: copy to USB • q/ctrl+c: quit"
+	}
+	if p.state == bundleFailed {
+		return "q/ctrl+c: quit"
 	}
 	return "Please wait..."
 }

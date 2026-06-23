@@ -1,4 +1,3 @@
-// internal/debugbundle/serve.go
 package debugbundle
 
 import (
