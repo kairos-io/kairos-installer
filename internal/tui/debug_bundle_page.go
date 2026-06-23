@@ -9,8 +9,8 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/kairos-io/kairos-sdk/agentrun"
 
-	"github.com/kairos-io/kairos-installer/internal/agentrun"
 	"github.com/kairos-io/kairos-installer/internal/debugbundle"
 )
 
