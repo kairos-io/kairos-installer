@@ -71,6 +71,7 @@ func InitialModel(l *sdkLogger.KairosLogger, source string) Model {
 		newSummaryPage(),
 		newInstallProcessPage(),
 		newUserdataPage(),
+		newDebugBundlePage(),
 	}
 	mainModel.currentPageID = mainModel.pages[0].ID() // Start with the first page
 
@@ -177,6 +178,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			mainModel.log.Debug("User requested to quit the installer")
 			fmt.Print("\033[H\033[2J") // Clear the screen before quitting
 			return mainModel, tea.Quit
+		case "ctrl+d":
+			mainModel.log.Debug("User requested debug bundle")
+			return mainModel, func() tea.Msg { return GoToPageMsg{PageID: DebugBundlePageID} }
 		case "esc":
 			// Go back to previous page if we have navigation history
 			if len(mainModel.navigationStack) > 0 {

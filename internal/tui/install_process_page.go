@@ -135,7 +135,7 @@ func (p *installProcessPage) Update(msg tea.Msg) (Page, tea.Cmd) {
 			} else if strings.HasPrefix(output, ErrorPrefix) {
 				p.errorMsg = strings.TrimPrefix(output, ErrorPrefix)
 				p.step = "Error: " + p.errorMsg
-				return p, nil
+				return p, func() tea.Msg { return GoToPageMsg{PageID: DebugBundlePageID} }
 			}
 			return p, func() tea.Msg { return CheckInstallerMsg{} }
 		case <-p.done:
