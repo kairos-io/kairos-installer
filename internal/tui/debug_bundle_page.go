@@ -19,7 +19,7 @@ type bundleState int
 const (
 	bundleCollecting bundleState = iota
 	bundleReady
-	bundleUSBPrompt
+	bundleUSBSelect
 	bundleFailed
 )
 
@@ -31,6 +31,8 @@ type debugBundlePage struct {
 	urls       []string
 	server     *debugbundle.Server
 	usbMessage string
+	usbMounts  []debugbundle.RemovableMount
+	usbCursor  int
 	errMsg     string
 }
 
@@ -122,13 +124,35 @@ func (p *debugBundlePage) handleKey(m tea.KeyMsg) (Page, tea.Cmd) {
 	switch p.state {
 	case bundleReady:
 		if m.String() == "u" {
-			p.state = bundleUSBPrompt
-			p.usbMessage = "Plug in a USB drive, then press Enter to copy the bundle."
+			// Scan for removable mounts and open the selection menu. With none
+			// found, stay on the ready screen and tell the user to plug one in
+			// and press u to rescan.
+			mounts, err := debugbundle.RemovableMounts()
+			if err != nil || len(mounts) == 0 {
+				p.usbMessage = "No USB drive detected. Plug one in and press u to rescan."
+				return p, nil
+			}
+			p.usbMounts = mounts
+			p.usbCursor = 0
+			p.usbMessage = ""
+			p.state = bundleUSBSelect
 			return p, nil
 		}
-	case bundleUSBPrompt:
-		if m.Type == tea.KeyEnter {
-			p.usbMessage = copyToFirstRemovable(p.path)
+	case bundleUSBSelect:
+		switch m.String() {
+		case "up", "k":
+			if p.usbCursor > 0 {
+				p.usbCursor--
+			}
+		case "down", "j":
+			if p.usbCursor < len(p.usbMounts)-1 {
+				p.usbCursor++
+			}
+		case "esc":
+			p.state = bundleReady
+			return p, nil
+		case "enter":
+			p.usbMessage = copyToMount(p.path, p.usbMounts[p.usbCursor])
 			p.state = bundleReady
 			return p, nil
 		}
@@ -136,18 +160,29 @@ func (p *debugBundlePage) handleKey(m tea.KeyMsg) (Page, tea.Cmd) {
 	return p, nil
 }
 
-// copyToFirstRemovable copies the bundle to the first mounted removable
-// partition, returning a user-facing status line.
-func copyToFirstRemovable(path string) string {
-	mounts, err := debugbundle.RemovableMounts()
-	if err != nil || len(mounts) == 0 {
-		return "No USB detected. Re-plug the drive and press Enter again."
-	}
-	dest, err := debugbundle.CopyTo(path, mounts[0].MountPoint)
+// copyToMount copies the bundle to the chosen removable mount, returning a
+// user-facing status line.
+func copyToMount(path string, mount debugbundle.RemovableMount) string {
+	dest, err := debugbundle.CopyTo(path, mount.MountPoint)
 	if err != nil {
 		return "Copy failed: " + err.Error()
 	}
-	return "Copied to " + dest + " on " + mounts[0].Device
+	return "Copied to " + dest + " on " + mount.Device
+}
+
+// formatUSBMenu renders the removable-mount selection list, marking the row at
+// cursor with a ">" indicator.
+func formatUSBMenu(mounts []debugbundle.RemovableMount, cursor int) string {
+	var b strings.Builder
+	b.WriteString("Select a USB drive to copy the bundle to:\n\n")
+	for i, mnt := range mounts {
+		indicator := " "
+		if i == cursor {
+			indicator = lipgloss.NewStyle().Foreground(kairosAccent).Render(">")
+		}
+		fmt.Fprintf(&b, "%s %s (%s)\n", indicator, mnt.Device, mnt.MountPoint)
+	}
+	return b.String()
 }
 
 // formatRetrievalText renders the HTTP URLs and local path block.
@@ -172,8 +207,8 @@ func (p *debugBundlePage) View() string {
 	case bundleFailed:
 		return lipgloss.NewStyle().Foreground(lipgloss.Color("#FF0000")).Bold(true).
 			Render("Failed to build debug bundle: "+p.errMsg) + "\n"
-	case bundleUSBPrompt:
-		return p.usbMessage + "\n"
+	case bundleUSBSelect:
+		return formatUSBMenu(p.usbMounts, p.usbCursor)
 	default: // bundleReady
 		s := "Debug bundle ready.\n\n" + formatRetrievalText(p.path, p.urls)
 		if p.usbMessage != "" {
@@ -188,6 +223,9 @@ func (p *debugBundlePage) Title() string { return "Debug Bundle" }
 func (p *debugBundlePage) Help() string {
 	if p.state == bundleReady {
 		return "u: copy to USB • q/ctrl+c: quit"
+	}
+	if p.state == bundleUSBSelect {
+		return genericNavigationHelp + " • esc: cancel"
 	}
 	if p.state == bundleFailed {
 		return "q/ctrl+c: quit"
