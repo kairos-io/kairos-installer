@@ -15,7 +15,7 @@ func main() {
 	source := flag.String("source", "", "installation source (passed through to kairos-agent)")
 	flag.Parse()
 
-	logger := sdkLogger.NewKairosLogger("installer", "info", true)
+	logger := sdkLogger.NewKairosLoggerWithExtraDirs("installer", "info", true, "/var/log/kairos/")
 	p := tea.NewProgram(tui.InitialModel(&logger, *source), tea.WithAltScreen())
 	if _, err := p.Run(); err != nil {
 		fmt.Printf("Error: %v\n", err)
