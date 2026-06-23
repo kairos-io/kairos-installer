@@ -8,7 +8,7 @@ require (
 	github.com/charmbracelet/lipgloss v1.1.0
 	github.com/jaypipes/ghw v0.24.0
 	github.com/joho/godotenv v1.5.1
-	github.com/kairos-io/kairos-sdk v0.22.2-0.20260623131432-476fcb3f31ef
+	github.com/kairos-io/kairos-sdk v0.22.2-0.20260623152946-4400cd2cd046
 	github.com/mudler/go-pluggable v0.0.0-20230126220627-7710299a0ae5
 	github.com/mudler/yip v1.24.0
 	github.com/onsi/ginkgo/v2 v2.32.0
