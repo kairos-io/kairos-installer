@@ -149,6 +149,9 @@ func (p *installProcessPage) Update(msg tea.Msg) (Page, tea.Cmd) {
 			} else if strings.HasPrefix(output, ErrorPrefix) {
 				p.errorMsg = strings.TrimPrefix(output, ErrorPrefix)
 				p.step = "Error: " + p.errorMsg
+				// Hand the reason to the debug bundle page so it can explain
+				// why it opened instead of silently showing a logs screen.
+				mainModel.installError = p.errorMsg
 				return p, func() tea.Msg { return GoToPageMsg{PageID: DebugBundlePageID} }
 			}
 			return p, func() tea.Msg { return CheckInstallerMsg{} }

@@ -201,17 +201,37 @@ func formatRetrievalText(path string, urls []string) string {
 	return b.String()
 }
 
+// failureBanner explains why the debug page opened when it was triggered by a
+// failed install. It is empty when the page was opened manually (ctrl+d), so the
+// manual case stays a plain "collect logs on request" screen.
+func failureBanner() string {
+	if mainModel.installError == "" {
+		return ""
+	}
+	red := lipgloss.NewStyle().Foreground(lipgloss.Color("#FF0000")).Bold(true)
+	return red.Render("[!] Installation failed: "+mainModel.installError) + "\n" +
+		"A debug bundle with the logs from this failure has been collected — share it when reporting the issue.\n\n"
+}
+
 func (p *debugBundlePage) View() string {
 	switch p.state {
 	case bundleCollecting:
-		return "Collecting diagnostics and building debug bundle...\n"
+		header := failureBanner()
+		if header == "" {
+			return "Collecting diagnostics and building debug bundle...\n"
+		}
+		return header + "Collecting diagnostics and building the debug bundle...\n"
 	case bundleFailed:
-		return lipgloss.NewStyle().Foreground(lipgloss.Color("#FF0000")).Bold(true).
+		return failureBanner() + lipgloss.NewStyle().Foreground(lipgloss.Color("#FF0000")).Bold(true).
 			Render("Failed to build debug bundle: "+p.errMsg) + "\n"
 	case bundleUSBSelect:
 		return formatUSBMenu(p.usbMounts, p.usbCursor)
 	default: // bundleReady
-		s := "Debug bundle ready.\n\n" + formatRetrievalText(p.path, p.urls)
+		ready := "Debug bundle ready."
+		if mainModel.installError == "" {
+			ready = "Debug bundle ready (collected on request)."
+		}
+		s := failureBanner() + ready + "\n\n" + formatRetrievalText(p.path, p.urls)
 		if p.usbMessage != "" {
 			s += "\n" + p.usbMessage + "\n"
 		}

@@ -26,6 +26,23 @@ var _ = Describe("formatRetrievalText", func() {
 	})
 })
 
+var _ = Describe("failureBanner", func() {
+	AfterEach(func() { mainModel.installError = "" })
+
+	It("explains the failure when an install error is set", func() {
+		mainModel.installError = "before-install failed: cannot read source"
+		out := failureBanner()
+		Expect(out).To(ContainSubstring("Installation failed"))
+		Expect(out).To(ContainSubstring("before-install failed: cannot read source"))
+		Expect(out).To(ContainSubstring("debug bundle"))
+	})
+
+	It("is empty when opened manually (no install error)", func() {
+		mainModel.installError = ""
+		Expect(failureBanner()).To(Equal(""))
+	})
+})
+
 var _ = Describe("formatUSBMenu", func() {
 	mounts := []debugbundle.RemovableMount{
 		{Device: "/dev/sdb1", MountPoint: "/run/media/usb0"},

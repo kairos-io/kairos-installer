@@ -47,7 +47,8 @@ type Model struct {
 	log             *sdkLogger.KairosLogger
 	source          string // cli flags to interactive installer? what??
 
-	showAbortConfirm bool // Show abort confirmation popup
+	installError     string // set when an install fails; shown on the debug bundle page
+	showAbortConfirm bool   // Show abort confirmation popup
 }
 
 var mainModel Model
