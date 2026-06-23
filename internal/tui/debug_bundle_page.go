@@ -79,8 +79,9 @@ func buildBundle(agentBin string, ctx debugbundle.Context) bundleResult {
 	extras, _ := debugbundle.CollectExtras(debugbundle.ExecRunner{}, ctx, "/var/log/kairos/")
 	out := debugbundle.OutputPath(time.Now())
 
-	// Fallback tarball also includes the installer log if the agent path fails.
-	files := append([]string{"/var/log/kairos/installer.log"}, extras...)
+	// Fallback tarball also includes the installer log and the agent transcript
+	// if the agent path fails.
+	files := append([]string{debugbundle.InstallerLog, debugbundle.AgentOutputLog}, extras...)
 	if err := debugbundle.Generate(agentBin, out, files); err != nil {
 		return bundleResult{err: err}
 	}

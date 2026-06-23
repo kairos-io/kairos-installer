@@ -14,6 +14,16 @@ import (
 // logs`, so writing the bundle here avoids recursion.
 const defaultOutputDir = "/run/kairos"
 
+// Log files the installer writes under /var/log/kairos (globbed by
+// `kairos-agent logs` and listed in the stdlib fallback tarball).
+const (
+	// InstallerLog is the installer's own structured log.
+	InstallerLog = "/var/log/kairos/installer.log"
+	// AgentOutputLog is the full agent transcript (raw stdout + stderr)
+	// captured during an install.
+	AgentOutputLog = "/var/log/kairos/agent-output.log"
+)
+
 // OutputPath returns a timestamped bundle path under /run/kairos, falling back
 // to the OS temp dir when /run/kairos is not writable.
 func OutputPath(now time.Time) string {
