@@ -14,15 +14,33 @@ import (
 // logs`, so writing the bundle here avoids recursion.
 const defaultOutputDir = "/run/kairos"
 
-// Log files the installer writes under /var/log/kairos (globbed by
-// `kairos-agent logs` and listed in the stdlib fallback tarball).
+// LogDir is where the installer writes its logs and the collected system
+// extras; `kairos-agent logs` globs *.log here into the bundle.
+const LogDir = "/var/log/kairos"
+
+// Log files the installer writes under LogDir (globbed by `kairos-agent logs`
+// and listed in the stdlib fallback tarball).
 const (
 	// InstallerLog is the installer's own structured log.
-	InstallerLog = "/var/log/kairos/installer.log"
+	InstallerLog = LogDir + "/installer.log"
 	// AgentOutputLog is the full agent transcript (raw stdout + stderr)
 	// captured during an install.
-	AgentOutputLog = "/var/log/kairos/agent-output.log"
+	AgentOutputLog = LogDir + "/agent-output.log"
 )
+
+// GenerateBundle collects the system extras into LogDir, then builds the bundle
+// tarball (via `kairos-agent logs`, or the stdlib fallback) and returns its
+// path. It does NOT start the HTTP server — it is the headless path used by the
+// `--collect-debug-bundle` CLI flag and reused by the TUI's build step.
+func GenerateBundle(agentBin string, ctx Context, now time.Time) (string, error) {
+	extras, _ := CollectExtras(ExecRunner{}, ctx, LogDir)
+	out := OutputPath(now)
+	files := append([]string{InstallerLog, AgentOutputLog}, extras...)
+	if err := Generate(agentBin, out, files); err != nil {
+		return "", err
+	}
+	return out, nil
+}
 
 // OutputPath returns a timestamped bundle path under /run/kairos, falling back
 // to the OS temp dir when /run/kairos is not writable.

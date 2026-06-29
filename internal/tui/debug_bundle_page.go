@@ -76,13 +76,8 @@ func (p *debugBundlePage) Init() tea.Cmd {
 // server. It runs off the bubbletea goroutine and operates only on the snapshot
 // passed in, never on the mainModel global.
 func buildBundle(agentBin string, ctx debugbundle.Context) bundleResult {
-	extras, _ := debugbundle.CollectExtras(debugbundle.ExecRunner{}, ctx, "/var/log/kairos/")
-	out := debugbundle.OutputPath(time.Now())
-
-	// Fallback tarball also includes the installer log and the agent transcript
-	// if the agent path fails.
-	files := append([]string{debugbundle.InstallerLog, debugbundle.AgentOutputLog}, extras...)
-	if err := debugbundle.Generate(agentBin, out, files); err != nil {
+	out, err := debugbundle.GenerateBundle(agentBin, ctx, time.Now())
+	if err != nil {
 		return bundleResult{err: err}
 	}
 	srv, _ := debugbundle.Serve(out)
@@ -213,6 +208,16 @@ func failureBanner() string {
 		"A debug bundle with the logs from this failure has been collected — share it when reporting the issue.\n\n"
 }
 
+// sensitiveDataWarning reminds the user to vet the bundle before sharing: it
+// contains the logs, the rendered cloud-config (password redacted, but other
+// fields are not), and system info that may include secrets we can't know about.
+func sensitiveDataWarning() string {
+	amber := lipgloss.NewStyle().Foreground(lipgloss.Color("#FFAF00")).Bold(true)
+	return amber.Render("[!] Review the bundle before sharing it.") + "\n" +
+		"It contains your logs, the install config (password redacted) and system info,\n" +
+		"which may include other sensitive data. Inspect it before sending to third parties.\n"
+}
+
 func (p *debugBundlePage) View() string {
 	switch p.state {
 	case bundleCollecting:
@@ -231,7 +236,7 @@ func (p *debugBundlePage) View() string {
 		if mainModel.installError == "" {
 			ready = "Debug bundle ready (collected on request)."
 		}
-		s := failureBanner() + ready + "\n\n" + formatRetrievalText(p.path, p.urls)
+		s := failureBanner() + ready + "\n\n" + sensitiveDataWarning() + "\n" + formatRetrievalText(p.path, p.urls)
 		if p.usbMessage != "" {
 			s += "\n" + p.usbMessage + "\n"
 		}

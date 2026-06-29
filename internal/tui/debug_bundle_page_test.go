@@ -43,6 +43,15 @@ var _ = Describe("failureBanner", func() {
 	})
 })
 
+var _ = Describe("sensitiveDataWarning", func() {
+	It("warns the user to review the bundle before sharing", func() {
+		out := sensitiveDataWarning()
+		Expect(out).To(ContainSubstring("Review the bundle before sharing"))
+		Expect(out).To(ContainSubstring("sensitive"))
+		Expect(out).To(ContainSubstring("third parties"))
+	})
+})
+
 var _ = Describe("formatUSBMenu", func() {
 	mounts := []debugbundle.RemovableMount{
 		{Device: "/dev/sdb1", MountPoint: "/run/media/usb0"},
