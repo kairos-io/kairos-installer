@@ -1,3 +1,45 @@
+> ## This repository has been archived pending migration into kairos-io/kairos
+>
+> `kairos-installer` has been absorbed into the
+> [kairos-io/kairos](https://github.com/kairos-io/kairos) monorepo as
+> part of the plan tracked in
+> [kairos-io/kairos#4367](https://github.com/kairos-io/kairos/issues/4367).
+> Every existing tag remains resolvable via the Go module proxy and
+> installable with the same
+> `go get github.com/kairos-io/kairos-installer@vX.Y.Z` as before, so
+> anything already published keeps working.
+>
+> New development happens at
+> [github.com/kairos-io/kairos/tree/master/installer](https://github.com/kairos-io/kairos/tree/master/installer).
+> The interactive installer binary now ships from the monorepo release
+> pipeline on the common `v*` tag, embedded into Kairos images by
+> `kairos-init` the same way as before.
+>
+> **To pick up newer installer code,** update your imports:
+>
+> ```
+> find . -type f -name '*.go' -exec sed -i \
+>   's|github.com/kairos-io/kairos-installer|github.com/kairos-io/kairos/v4/installer|g' {} +
+> go mod tidy
+> ```
+>
+> and pin at a monorepo tag (`go get github.com/kairos-io/kairos/v4@<tag>`).
+>
+> ### Backports
+>
+> Post-migration fixes flow through the monorepo's release branches,
+> shipping on the common `v*` tag alongside every other Kairos
+> device-runtime component. A pre-migration backport (a fix targeted
+> at a specific `v0.1.x` release of this repo, before the absorption)
+> is only considered for security fixes or no-workaround breakage;
+> the process is to open an issue on
+> [kairos-io/kairos](https://github.com/kairos-io/kairos) requesting
+> that this repo be temporarily unarchived so the patch can land here
+> and a patch tag can be cut. Convenience or feature backports do not
+> qualify.
+
+---
+
 # kairos-installer
 
 The default **interactive installer** for [Kairos](https://kairos.io).
